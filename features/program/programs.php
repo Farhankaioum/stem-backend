@@ -15,7 +15,7 @@ if ($method == 'GET') {
     try {
         if (isset($_GET['id'])) {
             $id = $_GET['id'];
-            $stmt = $pdo->prepare("SELECT id, title, description, image_filename, created_at, updated_at FROM programs WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
             $stmt->execute([$id]);
             $program = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -23,6 +23,12 @@ if ($method == 'GET') {
                 if ($program['image_filename']) {
                     $program['image_url'] = 'http://' . $_SERVER['HTTP_HOST'] . $generic_file_path . UPLOAD_DIR . $program['image_filename'];
                 }
+
+                // Parse learning outcomes if it's JSON
+                if ($program['learning_outcomes']) {
+                    $program['learning_outcomes'] = json_decode($program['learning_outcomes'], true);
+                }
+
                 unset($program['image_filename']);
                 
                 http_response_code(200);
@@ -33,7 +39,7 @@ if ($method == 'GET') {
             }
         } else {
             // Get all programs
-            $stmt = $pdo->query("SELECT id, title, description, image_filename, created_at, updated_at FROM programs ORDER BY created_at DESC");
+            $stmt = $pdo->query("SELECT id, title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes, created_at, updated_at FROM programs ORDER BY created_at DESC");
             $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             // Generate full image URLs
@@ -41,6 +47,11 @@ if ($method == 'GET') {
                 if ($program['image_filename']) {
                     $program['image_url'] = 'http://' . $_SERVER['HTTP_HOST'] . $generic_file_path . UPLOAD_DIR . $program['image_filename'];
                 }
+
+                if ($program['learning_outcomes']) {
+                    $program['learning_outcomes'] = json_decode($program['learning_outcomes'], true);
+                }
+
                 unset($program['image_filename']);
             }
             
@@ -62,6 +73,13 @@ if ($method == 'POST') {
     $title = $_POST['title'] ?? '';
     $description = $_POST['description'] ?? '';
     $image_filename = null;
+    $age_min_group = $_POST['age_min_group'] ?? null;
+    $age_max_group = $_POST['age_max_group'] ?? null;
+    $duration = $_POST['duration'] ?? null;
+    $duration_unit = $_POST['duration_unit'] ?? '';
+    $price = $_POST['price'] ?? null;
+    $schedule = $_POST['schedule'] ?? '';
+    $learning_outcomes = $_POST['learning_outcomes'] ?? '';
     
     // Check if it's an update or create operation
     $is_update = !empty($id);
@@ -70,6 +88,41 @@ if ($method == 'POST') {
         http_response_code(400);
         echo json_encode(['error' => 'Title and description are required']);
         exit;
+    }
+
+     if (!$age_min_group || !$age_max_group) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Min age group and Max age group are required']);
+        exit;
+    }
+
+     if ($age_min_group && $age_max_group && $age_min_group > $age_max_group) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Minimum age cannot be greater than maximum age']);
+        exit;
+    }
+
+      if ($duration && empty($duration_unit)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Duration unit is required when duration value is provided']);
+        exit;
+    }
+
+    // Process learning outcomes (expecting JSON array)
+    if ($learning_outcomes) {
+        if (is_string($learning_outcomes)) {
+            $learning_outcomes_array = json_decode($learning_outcomes, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid learning outcomes format. Expected JSON array']);
+                exit;
+            }
+            $learning_outcomes = json_encode($learning_outcomes_array);
+        } else {
+            $learning_outcomes = json_encode($learning_outcomes);
+        }
+    } else {
+        $learning_outcomes = json_encode([]);
     }
     
     // Handle file upload
@@ -113,15 +166,15 @@ if ($method == 'POST') {
             
             $final_image_filename = $image_filename ? $image_filename : $current_image_filename;
             
-            $stmt = $pdo->prepare("UPDATE programs SET title = ?, description = ?, image_filename = ? WHERE id = ?");
-            $stmt->execute([$title, $description, $final_image_filename, $id]);
+            $stmt = $pdo->prepare("UPDATE programs SET title = ?, description = ?, image_filename = ?, age_min_group = ?, age_max_group = ?, duration = ?, duration_unit = ?, price = ?, schedule = ?, learning_outcomes = ? WHERE id = ?");
+            $stmt->execute([$title, $description, $final_image_filename, $age_min_group, $age_max_group, $duration, $duration_unit, $price, $schedule, $learning_outcomes, $id]);
             
             if ($stmt->rowCount() > 0) {
                 if ($image_filename && $current_image_filename && file_exists(UPLOAD_DIR . $current_image_filename)) {
                     unlink(UPLOAD_DIR . $current_image_filename);
                 }
                 
-                $stmt = $pdo->prepare("SELECT id, title, description, image_filename, created_at, updated_at FROM programs WHERE id = ?");
+                $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
                 $stmt->execute([$id]);
                 $program = $stmt->fetch(PDO::FETCH_ASSOC);
                 
@@ -129,6 +182,11 @@ if ($method == 'POST') {
                 if ($program['image_filename']) {
                     $program['image_url'] = 'http://' . $_SERVER['HTTP_HOST'] . $generic_file_path . UPLOAD_DIR . $program['image_filename'];
                 }
+
+                if ($program['learning_outcomes']) {
+                    $program['learning_outcomes'] = json_decode($program['learning_outcomes'], true);
+                }
+
                 unset($program['image_filename']);
                 
                 http_response_code(200);
@@ -142,17 +200,22 @@ if ($method == 'POST') {
                 echo json_encode(['error' => 'Program not found or no changes made']);
             }
         } else {
-            $stmt = $pdo->prepare("INSERT INTO programs (title, description, image_filename) VALUES (?, ?, ?)");
-            $stmt->execute([$title, $description, $image_filename]);
+            $stmt = $pdo->prepare("INSERT INTO programs (title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$title, $description, $image_filename, $age_min_group, $age_max_group, $duration, $duration_unit, $price, $schedule, $learning_outcomes]);
             
             $programId = $pdo->lastInsertId();
-            $stmt = $pdo->prepare("SELECT id, title, description, image_filename, created_at, updated_at FROM programs WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
             $stmt->execute([$programId]);
             $program = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($program['image_filename']) {
                 $program['image_url'] = 'http://' . $_SERVER['HTTP_HOST'] . $generic_file_path . UPLOAD_DIR . $program['image_filename'];
             }
+
+            if ($program['learning_outcomes']) {
+                $program['learning_outcomes'] = json_decode($program['learning_outcomes'], true);
+            }
+
             unset($program['image_filename']);
             
             http_response_code(201);

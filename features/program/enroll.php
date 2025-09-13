@@ -8,7 +8,50 @@ if ($method == 'OPTIONS') {
     exit;
 }
 
-$learnerRole = requireRole('learner');
+$learnerRole = requireRole('admin');
+
+// Get all enrollments for a user
+if ($method == 'GET' && isset($_GET['user_enrollments'])) {
+    try {
+        $user_id = $_GET['user_id'] ?? null;
+
+        if (!$user_id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'User ID is required']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT pe.*, p.title, p.description, p.image_filename, p.price, p.schedule
+            FROM program_enrollments pe 
+            JOIN programs p ON pe.program_id = p.id 
+            WHERE pe.user_id = ? 
+            ORDER BY pe.enrolled_at DESC
+        ");
+        $stmt->execute([$user_id]);
+        $enrollments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Generate image URLs
+        foreach ($enrollments as &$enrollment) {
+            if ($enrollment['image_filename']) {
+                $enrollment['image_url'] = 'http://' . $_SERVER['HTTP_HOST'] . '/uploads/' . $enrollment['image_filename'];
+            }
+            unset($enrollment['image_filename']);
+        }
+
+        http_response_code(200);
+        echo json_encode([
+            'user_id' => $user_id,
+            'total_enrollments' => count($enrollments),
+            'enrollments' => $enrollments
+        ]);
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to fetch user enrollments: ' . $e->getMessage()]);
+    }
+    exit;
+}
 
 // Get user enrollment status for a program
 if ($method == 'GET') {
@@ -90,7 +133,7 @@ if ($method == 'POST') {
             http_response_code(409);
             echo json_encode(['error' => 'User is already enrolled in this program']);
             exit;
-        }
+        }  
 
         // Create enrollment
         $stmt = $pdo->prepare("INSERT INTO program_enrollments (user_id, program_id) VALUES (?, ?)");
@@ -154,49 +197,6 @@ if ($method == 'DELETE') {
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Failed to cancel enrollment: ' . $e->getMessage()]);
-    }
-    exit;
-}
-
-// Get all enrollments for a user
-if ($method == 'GET' && isset($_GET['user_enrollments'])) {
-    try {
-        $user_id = $_GET['user_id'] ?? null;
-
-        if (!$user_id) {
-            http_response_code(400);
-            echo json_encode(['error' => 'User ID is required']);
-            exit;
-        }
-
-        $stmt = $pdo->prepare("
-            SELECT pe.*, p.title, p.description, p.image_filename, p.price, p.schedule
-            FROM program_enrollments pe 
-            JOIN programs p ON pe.program_id = p.id 
-            WHERE pe.user_id = ? 
-            ORDER BY pe.enrolled_at DESC
-        ");
-        $stmt->execute([$user_id]);
-        $enrollments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Generate image URLs
-        foreach ($enrollments as &$enrollment) {
-            if ($enrollment['image_filename']) {
-                $enrollment['image_url'] = 'http://' . $_SERVER['HTTP_HOST'] . '/uploads/' . $enrollment['image_filename'];
-            }
-            unset($enrollment['image_filename']);
-        }
-
-        http_response_code(200);
-        echo json_encode([
-            'user_id' => $user_id,
-            'total_enrollments' => count($enrollments),
-            'enrollments' => $enrollments
-        ]);
-
-    } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Failed to fetch user enrollments: ' . $e->getMessage()]);
     }
     exit;
 }

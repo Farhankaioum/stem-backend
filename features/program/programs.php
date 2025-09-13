@@ -3,7 +3,7 @@ include '../../verify_token.php';
 
 
 $method = $_SERVER['REQUEST_METHOD'];
-$generic_file_path = '/web-development/group_project/Group-Project-KOI/backend/features/program/';
+$generic_file_path = '/stem-backend/features/program/';
 
 if ($method == 'OPTIONS') {
     http_response_code(200);

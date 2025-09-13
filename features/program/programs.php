@@ -15,7 +15,7 @@ if ($method == 'GET') {
     try {
         if (isset($_GET['id'])) {
             $id = $_GET['id'];
-            $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_group, duration, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
             $stmt->execute([$id]);
             $program = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -39,7 +39,7 @@ if ($method == 'GET') {
             }
         } else {
             // Get all programs
-            $stmt = $pdo->query("SELECT id, title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes, created_at, updated_at FROM programs ORDER BY created_at DESC");
+            $stmt = $pdo->query("SELECT id, title, description, image_filename, age_group, duration, price, schedule, learning_outcomes, created_at, updated_at FROM programs ORDER BY created_at DESC");
             $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             // Generate full image URLs
@@ -65,7 +65,7 @@ if ($method == 'GET') {
     exit;
 }
 
-$admin = requireRole('learner');
+$admin = requireRole('admin');
 // Handle POST request (create new program)
 if ($method == 'POST') {
     
@@ -73,10 +73,8 @@ if ($method == 'POST') {
     $title = $_POST['title'] ?? '';
     $description = $_POST['description'] ?? '';
     $image_filename = null;
-    $age_min_group = $_POST['age_min_group'] ?? null;
-    $age_max_group = $_POST['age_max_group'] ?? null;
+    $age_group = $_POST['age_group'] ?? null;
     $duration = $_POST['duration'] ?? null;
-    $duration_unit = $_POST['duration_unit'] ?? '';
     $price = $_POST['price'] ?? null;
     $schedule = $_POST['schedule'] ?? '';
     $learning_outcomes = $_POST['learning_outcomes'] ?? '';
@@ -90,21 +88,15 @@ if ($method == 'POST') {
         exit;
     }
 
-     if (!$age_min_group || !$age_max_group) {
+     if (!$age_group) {
         http_response_code(400);
-        echo json_encode(['error' => 'Min age group and Max age group are required']);
+        echo json_encode(['error' => 'Age group are required']);
         exit;
     }
 
-     if ($age_min_group && $age_max_group && $age_min_group > $age_max_group) {
+      if (empty($duration)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Minimum age cannot be greater than maximum age']);
-        exit;
-    }
-
-      if ($duration && empty($duration_unit)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Duration unit is required when duration value is provided']);
+        echo json_encode(['error' => 'Duration is required!']);
         exit;
     }
 
@@ -166,15 +158,15 @@ if ($method == 'POST') {
             
             $final_image_filename = $image_filename ? $image_filename : $current_image_filename;
             
-            $stmt = $pdo->prepare("UPDATE programs SET title = ?, description = ?, image_filename = ?, age_min_group = ?, age_max_group = ?, duration = ?, duration_unit = ?, price = ?, schedule = ?, learning_outcomes = ? WHERE id = ?");
-            $stmt->execute([$title, $description, $final_image_filename, $age_min_group, $age_max_group, $duration, $duration_unit, $price, $schedule, $learning_outcomes, $id]);
+            $stmt = $pdo->prepare("UPDATE programs SET title = ?, description = ?, image_filename = ?, age_group = ?, duration = ?, price = ?, schedule = ?, learning_outcomes = ? WHERE id = ?");
+            $stmt->execute([$title, $description, $final_image_filename, $age_group, $duration, $price, $schedule, $learning_outcomes, $id]);
             
             if ($stmt->rowCount() > 0) {
                 if ($image_filename && $current_image_filename && file_exists(UPLOAD_DIR . $current_image_filename)) {
                     unlink(UPLOAD_DIR . $current_image_filename);
                 }
                 
-                $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
+                $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_group, duration, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
                 $stmt->execute([$id]);
                 $program = $stmt->fetch(PDO::FETCH_ASSOC);
                 
@@ -200,11 +192,11 @@ if ($method == 'POST') {
                 echo json_encode(['error' => 'Program not found or no changes made']);
             }
         } else {
-            $stmt = $pdo->prepare("INSERT INTO programs (title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$title, $description, $image_filename, $age_min_group, $age_max_group, $duration, $duration_unit, $price, $schedule, $learning_outcomes]);
+            $stmt = $pdo->prepare("INSERT INTO programs (title, description, image_filename, age_group, duration, price, schedule, learning_outcomes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$title, $description, $image_filename, $age_group, $duration, $price, $schedule, $learning_outcomes]);
             
             $programId = $pdo->lastInsertId();
-            $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_min_group, age_max_group, duration, duration_unit, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT id, title, description, image_filename, age_group, duration, price, schedule, learning_outcomes, created_at, updated_at FROM programs WHERE id = ?");
             $stmt->execute([$programId]);
             $program = $stmt->fetch(PDO::FETCH_ASSOC);
             

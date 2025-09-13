@@ -1,8 +1,13 @@
 CREATE TABLE programs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     image_filename VARCHAR(255) NULL,
+    age_group VARCHAR(255) NULL,
+    duration VARCHAR(255) NULL,
+    price DECIMAL(10,2) NULL,
+    schedule VARCHAR(255) NULL,
+    learning_outcomes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

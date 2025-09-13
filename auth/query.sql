@@ -10,3 +10,6 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- run this
+alter table users add COLUMN is_active BOOLEAN DEFAULT TRUE

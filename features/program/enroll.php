@@ -8,7 +8,7 @@ if ($method == 'OPTIONS') {
     exit;
 }
 
-$learnerRole = requireRole('admin');
+$learnerRole = requireRole('learner');
 
 // Get all enrollments for a user
 if ($method == 'GET' && isset($_GET['user_enrollments'])) {
@@ -197,6 +197,50 @@ if ($method == 'DELETE') {
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Failed to cancel enrollment: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+$learnerRole = requireRole('admin');
+// Update enrollment status
+if ($method == 'PUT') {
+    try {
+        $data = json_decode(file_get_contents("php://input"), true);
+        
+        $user_id = $data['user_id'] ?? null;
+        $program_id = $data['program_id'] ?? null;
+        $status = $data['status'] ?? null;
+
+        if (!$user_id || !$program_id || !$status) {
+            http_response_code(400);
+            echo json_encode(['error' => 'User ID, Program ID, and Status are required']);
+            exit;
+        }
+
+        if (!in_array($status, ['pending', 'active', 'completed', 'cancelled'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid status. Use: pending, active, completed, or cancelled']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("
+            UPDATE program_enrollments 
+            SET status = ? 
+            WHERE user_id = ? AND program_id = ?
+        ");
+        $stmt->execute([$status, $user_id, $program_id]);
+
+        if ($stmt->rowCount() > 0) {
+            http_response_code(200);
+            echo json_encode(['message' => 'Enrollment status updated successfully']);
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Enrollment not found']);
+        }
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to update enrollment: ' . $e->getMessage()]);
     }
     exit;
 }

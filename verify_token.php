@@ -24,7 +24,7 @@ function authenticate() {
 function requireRole($requiredRole) {
     $user = authenticate();
     
-    if ($user['role'] !== $requiredRole) {
+    if ($user['role'] !== $requiredRole && $user['role'] !== 'admin') {
         http_response_code(403);
         echo json_encode(['error' => 'Insufficient permissions']);
         exit;

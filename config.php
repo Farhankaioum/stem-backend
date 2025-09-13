@@ -6,6 +6,11 @@ header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, Content-Disposition");
 header("Access-Control-Expose-Headers: Content-Disposition");
 
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(200);
+    exit(0);
+}
+
 define('JWT_SECRET', '34761eb2-ae47-472c-98b3-949966e6d568');
 define('JWT_ALGORITHM', 'HS256');
 

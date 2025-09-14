@@ -1,0 +1,6 @@
+kind: wasmer.io/App.v0
+name: stem-backend
+owner: farhankaioum
+package: .
+scaling:
+  mode: single_concurrency
